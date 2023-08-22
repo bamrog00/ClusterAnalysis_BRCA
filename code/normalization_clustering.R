@@ -18,6 +18,7 @@ library(colorRamp2)
 library(gplots)
 library(corrplot)
 library(Rtsne)
+library(dplyr)
 
 raw_counts = read.csv('../data/gene_expression/prepared_data/raw_count_BRCA.csv', sep = ',')
 clinical = read.csv('../data/gene_expression/prepared_data/clinical_BRCA.csv', sep = ',')
@@ -182,7 +183,69 @@ vsd <- vst(dds, blind=FALSE)
 #write.csv(res_all,'../data/res_all.csv', row.names = TRUE)
 
 
-plotPCA(vsd, intgroup=c("Subtype"))
+#plotPCA(vsd, intgroup=c("Subtype"))
+
+
+
+pcaData <- plotPCA(vsd, intgroup=c("Subtype", 'HRD_sum'), returnData=TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+pca_sub_hrd = ggplot(pcaData, aes(PC1, PC2, color= as.numeric(HRD_sum), shape=Subtype)) +
+  geom_point(size=3) +
+  theme_bw()+
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) +
+  scale_color_gradient(low = alpha("gray", 0.7), high = "darkred")+
+  ggtitle("PCA, normalized counts, all genes")+
+  coord_fixed() +
+  labs(color = "HRD sum")
+print(pca_sub_hrd)
+pca_hrd = ggplot(pcaData, aes(PC1, PC2, color= as.numeric(HRD_sum))) +
+  geom_point(size=3) +
+  theme_bw()+
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) +
+  scale_color_gradient(low = alpha("gray", 0.7), high = "darkred")+
+  ggtitle("PCA, normalized counts, all genes")+
+  coord_fixed() +
+  labs(color = "HRD sum")
+print(pca_hrd)
+pca_subtype = ggplot(pcaData, aes(PC1, PC2, color= Subtype)) +
+  geom_point(size=3) +
+  theme_bw()+
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) +
+  ggtitle("PCA, normalized counts, all genes")+
+  coord_fixed()
+print(pca_subtype)
+
+
+ggsave('../data/figures/BRCA_cohort/PCA_subtypes.png',pca_subtype, width = 8.63, height = 5.71)
+ggsave('../data/figures/BRCA_cohort/PCA_HRD.png',pca_hrd, width = 8.63, height = 5.71)
+ggsave('../data/figures/BRCA_cohort/PCA_subtypes_HRD.png',pca_sub_hrd, width = 8.63, height = 5.71)
+
+raw_count_hrdgenes = raw_counts[rownames(raw_counts) %in% hrdgenes$gene,]
+
+dds_sub <- DESeqDataSetFromMatrix(countData = raw_count_hrdgenes,
+                              colData = clinical,
+                              design= ~ Subtype)
+
+keep <- rowSums(counts(dds_sub)) >= 10
+dds_sub <- dds_sub[keep,]
+
+dds_sub <- DESeq(dds_sub)
+resultsNames(dds_sub)
+
+
+
+#vsd <- vst(dds_sub, blind=FALSE)
+vsd <- varianceStabilizingTransformation(dds_sub, blind=FALSE)
+
+#res_all = assay(vsd)
+#write.csv(res_all,'../data/res_all.csv', row.names = TRUE)
+
+
+#plotPCA(vsd, intgroup=c("Subtype"))
 
 
 
@@ -193,32 +256,35 @@ pca_sub_hrd = ggplot(pcaData, aes(PC1, PC2, color= as.numeric(HRD_sum), shape=Su
   geom_point(size=3) +
   xlab(paste0("PC1: ",percentVar[1],"% variance")) +
   ylab(paste0("PC2: ",percentVar[2],"% variance")) +
-  scale_color_gradient(low = alpha("white", 0.7), high = "darkred")+
+  scale_color_gradient(low = alpha("gray", 0.7), high = "darkred")+
+  ggtitle("PCA, normalized counts, HRR70 genes")+
   coord_fixed() +
+  theme_bw()+
   labs(color = "HRD sum")
-
+print(pca_sub_hrd)
 pca_hrd = ggplot(pcaData, aes(PC1, PC2, color= as.numeric(HRD_sum))) +
   geom_point(size=3) +
   xlab(paste0("PC1: ",percentVar[1],"% variance")) +
   ylab(paste0("PC2: ",percentVar[2],"% variance")) +
   scale_color_gradient(low = alpha("gray", 0.7), high = "darkred")+
+  ggtitle("PCA, normalized counts, HRR70 genes")+
   coord_fixed() +
+  theme_bw()+
   labs(color = "HRD sum")
-
+print(pca_hrd)
 pca_subtype = ggplot(pcaData, aes(PC1, PC2, color= Subtype)) +
   geom_point(size=3) +
   xlab(paste0("PC1: ",percentVar[1],"% variance")) +
   ylab(paste0("PC2: ",percentVar[2],"% variance")) +
+  ggtitle("PCA, normalized counts, HRR70 genes")+
+  theme_bw()+
   coord_fixed()
+print(pca_subtype)
 
 
-
-ggsave('../data/figures/BRCA_cohort/PCA_subtypes.png',pca_subtype, width = 8.63, height = 5.71)
-ggsave('../data/figures/BRCA_cohort/PCA_HRD.png',pca_hrd, width = 8.63, height = 5.71)
-ggsave('../data/figures/BRCA_cohort/PCA_subtypes_HRD.png',pca_sub_hrd, width = 8.63, height = 5.71)
-
-
-
+ggsave('../data/figures/BRCA_cohort/PCA_HRRgenes_subtypes.png',pca_subtype, width = 8.63, height = 5.71)
+ggsave('../data/figures/BRCA_cohort/PCA_HRRgenes_HRD.png',pca_hrd, width = 8.63, height = 5.71)
+ggsave('../data/figures/BRCA_cohort/PCA_HRRgenes_subtypes_HRD.png',pca_sub_hrd, width = 8.63, height = 5.71)
 
 #### Differential Expression analysis, Basal versus other ####
 
@@ -359,7 +425,9 @@ y_bar <- group_by(y, sign(NES)) %>%
 kegg_pathways = ggplot(y_bar, aes(NES, fct_reorder(Description, NES), fill = qvalue), showCategory=(n*2)) +
   geom_barh(stat='identity') +
   scale_fill_continuous(low='red', high='blue', guide=guide_colorbar(reverse=TRUE)) +
-  theme_minimal() + ylab(NULL) + ggtitle("KEGG GSEA cell models")
+  theme_minimal() + ylab(NULL) + ggtitle("KEGG GSEA cell models, Basal versus other")+
+  theme(plot.title = element_text(hjust = 1.0), panel.background = element_rect(fill = "white"),
+        plot.background = element_rect(fill = "white"))
 
 y <- mutate(hallmark_gsea, ordering = abs(NES)) %>%
   arrange(desc(ordering))
@@ -369,7 +437,12 @@ y_bar <- group_by(y, sign(NES)) %>%
 hallmark_pathways = ggplot(y_bar, aes(NES, fct_reorder(Description, NES), fill = qvalue), showCategory=(n*2)) +
   geom_barh(stat='identity') +
   scale_fill_continuous(low='red', high='blue', guide=guide_colorbar(reverse=TRUE)) +
-  theme_minimal() + ylab(NULL) + ggtitle("Hallmark GSEA cell models")
+  theme_minimal() + ylab(NULL) + ggtitle("Hallmark GSEA cell models, Basal versus other")+
+  theme(plot.title = element_text(hjust = 1.0), panel.background = element_rect(fill = "white"),
+        plot.background = element_rect(fill = "white"))
+
+print(kegg_pathways)
+print(hallmark_pathways)
 
 ggsave('../data/figures/BRCA_cohort/kegg_pathways.png',kegg_pathways, width = 8.63, height = 5.71)
 ggsave('../data/figures/BRCA_cohort/hallmark_pathways.png',hallmark_pathways, width = 8.63, height = 5.71)
@@ -458,23 +531,59 @@ ggsave('../data/figures/BRCA_cohort/basal_other_volcano.png',volcano_basal_other
 sub_df_clinical = clinical[,c('Subtype','HRD_sum')]
 
 
+result_anova <- aov(HRD_sum ~ Subtype, data = sub_df_clinical)
 
+# Check the summary of the ANOVA results
+summary(result_anova)
 
-
+TukeyHSD(result_anova)
 
 
 
 # Violin plot
-
+n_obs <- table(sub_df_clinical$Subtype)
 subtype_violin = ggplot(sub_df_clinical, aes(x = Subtype, y = as.numeric(HRD_sum), fill = Subtype)) +
-  geom_violin() + geom_boxplot(width = 0.2)+
-  labs(x = "Subtype", y = "HRD Score")
+  geom_violin(show.legend = FALSE) + geom_boxplot(width = 0.2, show.legend = FALSE)+
+  theme_bw()+
+  ggtitle("HRDsum distribution of different molecular subtypes of BRCA")+
+  labs(x = "Subtype", y = "HRDsum")+
+  scale_x_discrete(labels = function(x) paste0(x, " (n = ", n_obs[x],')'))+
+  theme(axis.text.x = element_text(size = 8))
 
 ggsave('../data/figures/BRCA_cohort/subtypes_violin.png',subtype_violin, width = 8.63, height = 5.71)
 
+
+#### Get Median per Subtype and number of samples
+
+median_and_count <- clinical %>%
+  group_by(Subtype) %>%
+  summarise(
+    Median_HRD_sum = median(HRD_sum),
+    Num_Samples = n()
+  )
+
+write.csv(median_and_count,'../data/median_and_count.csv', row.names = FALSE)
+
 # Correlation tests
+label_encode <- function(x) {
+  levels <- unique(x)
+  as.numeric(factor(x, levels = levels))
+}
+
+clinical$Subtype_Encoded <- label_encode(clinical$Subtype)
+correlation <- cor(clinical$HRD_sum, clinical$Subtype)
+
+# Output the result
+print('Correlation between molecular Subtype and HRDsum')
+print(correlation)
 
 kruskal.test(HRD_sum ~ Subtype, data = clinical)
+
+HRD_scores_v2 = data.frame( read.csv('../../HRD_score/data/HRD_scores_pan_cancer_annotated_v2.csv'))
+os = HRD_scores_v2[HRD_scores_v2$Project.ID == 'TCGA-UCEC',]
+os_primary = os[os$Type == 'Primary',]
+
+print(median(os_primary$HRD_sum))
 
 pairwise.wilcox.test(as.numeric(clinical$HRD_sum), clinical$Subtype,
                      p.adjust.method = "BH")
@@ -579,8 +688,8 @@ raw_count_hrdgenes = raw_counts[rownames(raw_counts) %in% hrdgenes$gene,]
 
 write.csv(raw_count_hrdgenes,'../data/raw_counts_hrdgenes.csv', row.names = TRUE)
 
-
-dds_sub <- DESeqDataSetFromMatrix(countData = raw_count_hrdgenes,
+######### PCA all genes
+dds_sub <- DESeqDataSetFromMatrix(countData = raw_counts,
                               colData = clinical,
                               design= ~ Subtype)
 
@@ -598,7 +707,7 @@ vsd_sub <- varianceStabilizingTransformation(dds_sub, blind=FALSE)
 #ress = assay(vsd_sub)
 #write.csv(ress,'../data/de_hrdgenes_vsd.csv', row.names = TRUE)
 
-plotPCA(vsd_sub, intgroup=c("Subtype"))
+#plotPCA(vsd_sub, intgroup=c("Subtype"))
 
 pcaData <- plotPCA(vsd_sub, intgroup=c("Subtype", 'HRD_sum'), returnData=TRUE)
 percentVar <- round(100 * attr(pcaData, "percentVar"))
@@ -607,7 +716,7 @@ pca_sub_hrd = ggplot(pcaData, aes(PC1, PC2, color= as.numeric(HRD_sum), shape=Su
   geom_point(size=3) +
   xlab(paste0("PC1: ",percentVar[1],"% variance")) +
   ylab(paste0("PC2: ",percentVar[2],"% variance")) +
-  scale_color_gradient(low = alpha("white", 0.7), high = "darkred")+
+  scale_color_gradient(low = alpha("gray", 0.7), high = "darkred")+
   coord_fixed()
 
 pca_hrd = ggplot(pcaData, aes(PC1, PC2, color= as.numeric(HRD_sum))) +
@@ -622,6 +731,13 @@ pca_subtype = ggplot(pcaData, aes(PC1, PC2, color= Subtype)) +
   xlab(paste0("PC1: ",percentVar[1],"% variance")) +
   ylab(paste0("PC2: ",percentVar[2],"% variance")) +
   coord_fixed()
+
+
+
+
+
+
+
 
 print(pca_hrd)
 
